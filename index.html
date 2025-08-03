@@ -1,0 +1,94 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job File Management System</title>
+  <script>
+    const apiURL = "https://script.google.com/macros/s/AKfycbx2J8pvt5drKQPiU6WMPb6Kez5elYEhRkNTK3z7Z9feELCMs_AIGVaFvS0DYPTqv60Y/exec";
+    let currentUser = null;
+
+    async function performLogin(){
+      const users = await fetch(apiURL + "?sheet=Users").then(r=>r.json());
+      const uname = document.getElementById('login-username').value.trim().toLowerCase();
+      const pass = document.getElementById('login-password').value.trim();
+
+      const user = users.find(u => 
+        u.username.trim().toLowerCase() === uname && String(u.password).trim() === pass
+      );
+
+      if(user){
+        currentUser = user;
+        document.getElementById('login-screen').style.display='none';
+        document.getElementById('main-container').style.display='block';
+        document.getElementById('prepared-by').value = user.displayName;
+        if(user.role === "admin"){ document.getElementById('admin-panel').style.display='block'; }
+        alert("Login successful: " + user.displayName);
+      } else {
+        document.getElementById('login-error').innerText = "Invalid username or password";
+      }
+    }
+
+    function getFormData(){
+      return {
+        jobId: document.getElementById('job-id').value,
+        jobData: document.getElementById('job-data').value
+      };
+    }
+
+    async function saveData(){
+      const data = getFormData();
+      data.username = currentUser.username;
+      data.date = new Date().toLocaleString();
+
+      await fetch(apiURL + "?sheet=Jobs&action=addJob", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      });
+
+      alert("Job File saved to Google Sheet!");
+    }
+
+    async function loadData(){
+      const jobs = await fetch(apiURL + "?sheet=Jobs").then(r=>r.json());
+      const userJobs = jobs.filter(j => j.username === currentUser.username);
+      if(userJobs.length === 0){ alert("No job files found!"); return; }
+
+      const lastJob = userJobs[userJobs.length - 1];
+      document.getElementById('job-id').value = lastJob.jobId;
+      document.getElementById('job-data').value = lastJob.jobData;
+      alert("Job File loaded from Google Sheet!");
+    }
+  </script>
+</head>
+<body>
+  <div id="login-screen">
+    <h3>Login</h3>
+    <input id="login-username" placeholder="Username"><br>
+    <input id="login-password" type="password" placeholder="Password"><br>
+    <button onclick="performLogin()">Login</button>
+    <p id="login-error" style="color:red;"></p>
+  </div>
+
+  <div id="main-container" style="display:none;">
+    <h2>Job File Management</h2>
+    <label>Prepared By:</label>
+    <input id="prepared-by" readonly><br><br>
+
+    <label>Job ID:</label>
+    <input id="job-id"><br><br>
+    <label>Job Data:</label>
+    <textarea id="job-data"></textarea><br><br>
+
+    <button onclick="saveData()">Save Job</button>
+    <button onclick="loadData()">Load Last Job</button>
+
+    <div id="admin-panel" style="display:none; margin-top:20px;">
+      <h3>Admin Panel</h3>
+      <p>Only visible to admin users.</p>
+    </div>
+  </div>
+</body>
+</html>
